@@ -1,13 +1,29 @@
 package com.service.models;
 
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+
+@Entity
+@Table(name = "receta")
 public class Receta {
+    @Id
+    @Column(name = "id")
     private String id;
+    @Column(name = "titulo")
     private String titulo;
+    @Column(name = "resumen")
     private String resumen;
+    @Column(name = "ingredientes")
     private String ingredientes;
+    @Column(name = "preparacion")
     private String preparacion;
+    @Column(name = "imagen")
     private String imagen;
+    @Column(name = "badge")
     private String badge;
+    @Column(name = "badge_class")
     private String badgeClass;
 
     public Receta() {}
