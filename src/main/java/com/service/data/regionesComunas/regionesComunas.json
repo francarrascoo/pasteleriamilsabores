@@ -188,6 +188,28 @@
         ]
     },
     {
+        "id": "16",
+        "region": "Ñuble",
+        "comunas": [
+            "Chillán",
+            "Chillán Viejo",
+            "Bulnes",
+            "San Carlos",
+            "Coihueco",
+            "Pinto",
+            "Pemuco",
+            "Quillón",
+            "Quirihue",
+            "Ránquil",
+            "Trehuaco",
+            "Cobquecura",
+            "Yungay",
+            "El Carmen",
+            "San Ignacio",
+            "Ninhue"
+        ]
+    },
+    {
         "id": "08",
         "region": "Biobío",
         "comunas": [

@@ -20,7 +20,28 @@
                     "comuna": "Providencia"
                 }
             ],
-            "password": "61be55a8e2f6b4e172338bddf184d6dbee29c98853e0a0485ecee7f27b9af0b4"
+            "password": "61be55a8e2f6b4e172338bddf184d6dbee29c98853e0a0485ecee7f27b9af0b4",
+            "discount_percent": null,
+            "free_cake_eligible": null,
+            "lifetime_discount_percent": null,
+            "registration_code": null,
+            "registration_date": null,
+            "cards": [
+                {
+                    "id": "card-ana-1",
+                    "numero_tarjeta": "5691234567890123",
+                    "mes": 12,
+                    "anio": 2025,
+                    "nombre": "Ana María Pérez Soto"
+                },
+                {
+                    "id": "card-ana-2",
+                    "numero_tarjeta": "5691111222233334",
+                    "mes": 6,
+                    "anio": 2026,
+                    "nombre": "Ana María Pérez Soto"
+                }
+            ]
         },
         {
             "run": "12345678-9",
@@ -43,7 +64,21 @@
                     "comuna": "Valparaíso"
                 }
             ],
-            "password": "61be55a8e2f6b4e172338bddf184d6dbee29c98853e0a0485ecee7f27b9af0b4"
+            "password": "61be55a8e2f6b4e172338bddf184d6dbee29c98853e0a0485ecee7f27b9af0b4",
+            "discount_percent": null,
+            "free_cake_eligible": null,
+            "lifetime_discount_percent": null,
+            "registration_code": null,
+            "registration_date": null,
+            "cards": [
+                {
+                    "id": "card-luis-1",
+                    "numero_tarjeta": "5692222333344445",
+                    "mes": 3,
+                    "anio": 2027,
+                    "nombre": "Luis Felipe González Fuentes"
+                }
+            ]
         },
         {
             "run": "14567832-1",
@@ -66,7 +101,21 @@
                     "comuna": "Talcahuano"
                 }
             ],
-            "password": "61be55a8e2f6b4e172338bddf184d6dbee29c98853e0a0485ecee7f27b9af0b4"
+            "password": "61be55a8e2f6b4e172338bddf184d6dbee29c98853e0a0485ecee7f27b9af0b4",
+            "discount_percent": null,
+            "free_cake_eligible": null,
+            "lifetime_discount_percent": null,
+            "registration_code": null,
+            "registration_date": null,
+            "cards": [
+                {
+                    "id": "card-marcela-1",
+                    "numero_tarjeta": "5693333444455556",
+                    "mes": 8,
+                    "anio": 2026,
+                    "nombre": "Marcela Andrea Rojas"
+                }
+            ]
         },
         {
             "run": "15678932-1",
@@ -89,7 +138,12 @@
                     "comuna": "Temuco"
                 }
             ],
-            "password": "61be55a8e2f6b4e172338bddf184d6dbee29c98853e0a0485ecee7f27b9af0b4"
+            "password": "61be55a8e2f6b4e172338bddf184d6dbee29c98853e0a0485ecee7f27b9af0b4",
+            "discount_percent": null,
+            "free_cake_eligible": null,
+            "lifetime_discount_percent": null,
+            "registration_code": null,
+            "registration_date": null
         },
         {
             "run": "16789032-2",
@@ -112,7 +166,12 @@
                     "comuna": "Talca"
                 }
             ],
-            "password": "61be55a8e2f6b4e172338bddf184d6dbee29c98853e0a0485ecee7f27b9af0b4"
+            "password": "61be55a8e2f6b4e172338bddf184d6dbee29c98853e0a0485ecee7f27b9af0b4",
+            "discount_percent": null,
+            "free_cake_eligible": null,
+            "lifetime_discount_percent": null,
+            "registration_code": null,
+            "registration_date": null
         },
         {
             "run": "17890132-2",
@@ -135,7 +194,12 @@
                     "comuna": "La Serena"
                 }
             ],
-            "password": "61be55a8e2f6b4e172338bddf184d6dbee29c98853e0a0485ecee7f27b9af0b4"
+            "password": "61be55a8e2f6b4e172338bddf184d6dbee29c98853e0a0485ecee7f27b9af0b4",
+            "discount_percent": null,
+            "free_cake_eligible": null,
+            "lifetime_discount_percent": null,
+            "registration_code": null,
+            "registration_date": null
         },
         {
             "run": "18901232-2",
@@ -158,7 +222,12 @@
                     "comuna": "Rancagua"
                 }
             ],
-            "password": "61be55a8e2f6b4e172338bddf184d6dbee29c98853e0a0485ecee7f27b9af0b4"
+            "password": "61be55a8e2f6b4e172338bddf184d6dbee29c98853e0a0485ecee7f27b9af0b4",
+            "discount_percent": null,
+            "free_cake_eligible": null,
+            "lifetime_discount_percent": null,
+            "registration_code": null,
+            "registration_date": null
         },
         {
             "run": "19011022-2",
@@ -181,7 +250,12 @@
                     "comuna": "Antofagasta"
                 }
             ],
-            "password": "61be55a8e2f6b4e172338bddf184d6dbee29c98853e0a0485ecee7f27b9af0b4"
+            "password": "61be55a8e2f6b4e172338bddf184d6dbee29c98853e0a0485ecee7f27b9af0b4",
+            "discount_percent": null,
+            "free_cake_eligible": null,
+            "lifetime_discount_percent": null,
+            "registration_code": null,
+            "registration_date": null
         },
         {
             "run": "20456782-2",
@@ -198,7 +272,12 @@
                     "comuna": "Puerto Montt"
                 }
             ],
-            "password": "61be55a8e2f6b4e172338bddf184d6dbee29c98853e0a0485ecee7f27b9af0b4"
+            "password": "61be55a8e2f6b4e172338bddf184d6dbee29c98853e0a0485ecee7f27b9af0b4",
+            "discount_percent": null,
+            "free_cake_eligible": null,
+            "lifetime_discount_percent": null,
+            "registration_code": null,
+            "registration_date": null
         },
         {
             "run": "21567832-2",
@@ -215,6 +294,11 @@
                     "comuna": "Copiapó"
                 }
             ],
-            "password": "61be55a8e2f6b4e172338bddf184d6dbee29c98853e0a0485ecee7f27b9af0b4"
+            "password": "61be55a8e2f6b4e172338bddf184d6dbee29c98853e0a0485ecee7f27b9af0b4",
+            "discount_percent": null,
+            "free_cake_eligible": null,
+            "lifetime_discount_percent": null,
+            "registration_code": null,
+            "registration_date": null
         }
     ]
