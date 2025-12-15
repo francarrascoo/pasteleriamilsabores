@@ -37,7 +37,8 @@ public class Producto {
     @Column(name = "descripcion_producto", columnDefinition = "TEXT")
     private String descripcionProducto;
     @JsonProperty("imagen_producto")
-    @Column(name = "imagen_producto")
+    @Lob
+    @Column(name = "imagen_producto", columnDefinition = "TEXT")
     private String imagenProducto;
     @Column(name = "stock")
     private Integer stock;

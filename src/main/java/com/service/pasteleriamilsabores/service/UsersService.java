@@ -63,9 +63,11 @@ public class UsersService {
             u.setTelefono(validateTelefono(req.getTelefono()));
         }
         u.setFechaNacimiento(req.getFechaNacimiento());
-        // tipoUsuario may be null
-        if (req.getTipoUsuario() != null) {
+        // tipoUsuario defaults to Cliente if not provided
+        if (req.getTipoUsuario() != null && !req.getTipoUsuario().isBlank()) {
             u.setTipoUsuario(UserType.fromString(req.getTipoUsuario()));
+        } else {
+            u.setTipoUsuario(UserType.CLIENTE);
         }
         if (req.getPassword() == null || req.getPassword().isEmpty()) {
             throw new IllegalArgumentException("Password is required");
@@ -84,16 +86,14 @@ public class UsersService {
                 if (age >= 50) {
                     u.setDiscountPercent(50);
                 }
-                // free cake if Duoc student and registering on birthday
-                if (req.getCorreo() != null && req.getCorreo().toLowerCase().contains("duoc.cl")) {
-                    LocalDate today = LocalDate.now();
-                    if (dob.getMonth() == today.getMonth() && dob.getDayOfMonth() == today.getDayOfMonth()) {
-                        u.setFreeCakeEligible(Boolean.TRUE);
-                    }
-                }
             }
         } catch (DateTimeParseException ex) {
             // ignore DOB parsing issues; no age-based discount
+        }
+
+        // free cake eligibility for @duoc.cl email addresses
+        if (req.getCorreo() != null && req.getCorreo().toLowerCase().contains("@duoc.cl")) {
+            u.setFreeCakeEligible(Boolean.TRUE);
         }
 
         // registration code benefit
@@ -137,6 +137,14 @@ public class UsersService {
         }
 
         return userRepository.save(existing);
+    }
+
+    public User toggleUserActive(String run, Boolean activo) {
+        User user = userRepository.findById(run)
+                .orElseThrow(() -> new EntityNotFoundException("Usuario no encontrado: " + run));
+        
+        user.setActivo(activo);
+        return userRepository.save(user);
     }
 
     private String validateTelefono(String telefono) {

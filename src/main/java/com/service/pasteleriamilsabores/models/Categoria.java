@@ -3,6 +3,7 @@ package com.service.pasteleriamilsabores.models;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import jakarta.persistence.Column;
@@ -33,6 +34,7 @@ public class Categoria {
     private String nombreCategoria;
     
     @OneToMany(mappedBy = "categoria", cascade = jakarta.persistence.CascadeType.ALL, orphanRemoval = true)
+    @JsonIgnore
     private final List<Producto> productos = new ArrayList<>();
 
     // keep helper methods to maintain bidirectional relation

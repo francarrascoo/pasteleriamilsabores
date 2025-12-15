@@ -12,7 +12,6 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
-
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -30,6 +29,10 @@ public class Pedido {
     @ManyToOne
     @JoinColumn(name = "usuario_run")
     private User user;
+
+    @ManyToOne
+    @JoinColumn(name = "tarjeta_id")
+    private Card card;
 
     @OneToMany(mappedBy = "pedido", cascade = CascadeType.ALL, orphanRemoval = true)
     private final List<PedidoItem> items = new ArrayList<>();
@@ -54,6 +57,9 @@ public class Pedido {
 
     @Column(name = "monto_descuento")
     private java.math.BigDecimal discountAmount;
+
+    @Column(name = "costo_envio")
+    private java.math.BigDecimal shippingCost;
 
     @Column(name = "status")
     private String status;

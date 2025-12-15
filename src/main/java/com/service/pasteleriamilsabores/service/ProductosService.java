@@ -7,7 +7,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.service.pasteleriamilsabores.dto.ProductoDto;
+import com.service.pasteleriamilsabores.models.Categoria;
 import com.service.pasteleriamilsabores.models.Producto;
+import com.service.pasteleriamilsabores.repository.CategoriaRepository;
 import com.service.pasteleriamilsabores.repository.ProductoRepository;
 
 import jakarta.persistence.EntityNotFoundException;
@@ -16,9 +18,11 @@ import jakarta.persistence.EntityNotFoundException;
 public class ProductosService {
 
     private final ProductoRepository productoRepository;
+    private final CategoriaRepository categoriaRepository;
 
-    public ProductosService(ProductoRepository productoRepository) {
+    public ProductosService(ProductoRepository productoRepository, CategoriaRepository categoriaRepository) {
         this.productoRepository = productoRepository;
+        this.categoriaRepository = categoriaRepository;
     }
 
     @Transactional(readOnly = true)
@@ -72,6 +76,10 @@ public class ProductosService {
         dto.setImagenProducto(producto.getImagenProducto());
         dto.setStock(producto.getStock());
         dto.setStockCritico(producto.getStockCritico());
+        if (producto.getCategoria() != null) {
+            dto.setCategoriaId(producto.getCategoria().getIdCategoria());
+            dto.setCategoriaNombre(producto.getCategoria().getNombreCategoria());
+        }
         return dto;
     }
 
@@ -91,5 +99,30 @@ public class ProductosService {
         producto.setImagenProducto(dto.getImagenProducto());
         producto.setStock(dto.getStock());
         producto.setStockCritico(dto.getStockCritico());
+        Categoria categoria = resolveCategoria(dto);
+        if (categoria != null) {
+            producto.setCategoria(categoria);
+        }
+    }
+
+    /**
+     * Resolve la categoria por ID o por nombre; si no existe y viene el nombre,
+     * la crea automáticamente. Devuelve null si no se proporcionó ni ID ni nombre.
+     */
+    private Categoria resolveCategoria(ProductoDto dto) {
+        if (dto.getCategoriaId() != null) {
+            return categoriaRepository.findById(dto.getCategoriaId())
+                    .orElseThrow(() -> new EntityNotFoundException("Categoria no encontrada: " + dto.getCategoriaId()));
+        }
+        String nombreCategoria = dto.getCategoriaNombre();
+        if (nombreCategoria == null || nombreCategoria.isBlank()) {
+            return null;
+        }
+        return categoriaRepository.findByNombreCategoriaIgnoreCase(nombreCategoria)
+                .orElseGet(() -> {
+                    Categoria nueva = new Categoria();
+                    nueva.setNombreCategoria(nombreCategoria.trim());
+                    return categoriaRepository.save(nueva);
+                });
     }
 }

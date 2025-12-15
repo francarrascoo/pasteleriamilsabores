@@ -59,6 +59,9 @@ public class User {
     @Column(name = "fecha_registro")
     private LocalDate registrationDate;
 
+    @Column(name = "activo", columnDefinition = "BOOLEAN DEFAULT true")
+    private Boolean activo = true;
+
     // maintain bidirectional relationship when setting collection
     public void setAddresses(List<Address> addresses) {
         this.addresses.clear();

@@ -12,14 +12,16 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.service.pasteleriamilsabores.dto.OrderItemRequest;
+import com.service.pasteleriamilsabores.dto.OrderItemSummaryDto;
 import com.service.pasteleriamilsabores.dto.OrderRequest;
 import com.service.pasteleriamilsabores.dto.OrderResponse;
-import com.service.pasteleriamilsabores.dto.OrderItemSummaryDto;
 import com.service.pasteleriamilsabores.dto.OrderSummaryDto;
+import com.service.pasteleriamilsabores.models.Card;
 import com.service.pasteleriamilsabores.models.Pedido;
 import com.service.pasteleriamilsabores.models.PedidoItem;
 import com.service.pasteleriamilsabores.models.Producto;
 import com.service.pasteleriamilsabores.models.User;
+import com.service.pasteleriamilsabores.repository.CardRepository;
 import com.service.pasteleriamilsabores.repository.PedidoRepository;
 import com.service.pasteleriamilsabores.repository.ProductoRepository;
 import com.service.pasteleriamilsabores.repository.UserRepository;
@@ -36,6 +38,12 @@ public class PedidosService {
     @Autowired
     private PedidoRepository pedidoRepository;
 
+    @Autowired
+    private CardRepository cardRepository;
+
+    @Autowired
+    private VentaDiariaService ventaDiariaService;
+
     @Transactional
     public OrderResponse createOrder(OrderRequest req) {
         if (req == null) throw new IllegalArgumentException("OrderRequest required");
@@ -46,7 +54,7 @@ public class PedidosService {
         pedido.setId(pedidoId);
         pedido.setUser(user);
         pedido.setCreatedAt(LocalDateTime.now());
-        pedido.setStatus("CREATED");
+        pedido.setStatus("CREADO");
         pedido.setDeliveryAddress(req.getDeliveryAddress());
 
         BigDecimal subtotal = BigDecimal.ZERO;
@@ -87,23 +95,43 @@ public class PedidosService {
 
         pedido.setItems(items);
 
-        // preserve original subtotal (before free cake / discounts)
-        BigDecimal originalSubtotal = subtotal;
+        // subtotal before any benefits is kept in `subtotal` if needed later
 
-        // separate cake vs non-cake subtotals
-        BigDecimal cakeSubtotal = BigDecimal.ZERO;
-        for (PedidoItem pi : items) {
-            String name = pi.getProducto() == null ? "" : pi.getProducto().getNombreProducto();
-            if (name != null && name.toLowerCase().contains("torta")) {
-                cakeSubtotal = cakeSubtotal.add(pi.getTotalPrice());
-            }
-        }
-        BigDecimal nonCakeSubtotal = originalSubtotal.subtract(cakeSubtotal);
+        // separate cake info was computed previously but not used; removed to simplify
 
-        // 1) apply free cake: if user has freeCakeEligible true, find a cake in items and make one unit free
+        // 1) apply free cake only if request asks to consume the coupon and user is eligible
         BigDecimal freeCakeAmount = BigDecimal.ZERO;
         boolean freeCakeApplied = false;
-        if (Boolean.TRUE.equals(user.getFreeCakeEligible())) {
+        boolean consumeFreeCake = Boolean.TRUE.equals(req.getApplyFreeCakeCoupon());
+        boolean isBirthdayToday = false;
+        try {
+            if (user.getFechaNacimiento() != null && !user.getFechaNacimiento().isBlank()) {
+                java.time.LocalDate dob = parseBirthday(user.getFechaNacimiento());
+                if (dob != null) {
+                    java.time.LocalDate today = java.time.LocalDate.now();
+                    isBirthdayToday = (dob.getMonthValue() == today.getMonthValue() && dob.getDayOfMonth() == today.getDayOfMonth());
+                }
+            }
+        } catch (Exception ignored) {
+            isBirthdayToday = false;
+        }
+        boolean alreadyUsedToday = pedidoRepository.findByUserRunOrderByCreatedAtDesc(user.getRun())
+                .stream()
+                .anyMatch(p -> Boolean.TRUE.equals(p.getFreeCakeApplied()) && p.getCreatedAt() != null && p.getCreatedAt().toLocalDate().equals(java.time.LocalDate.now()));
+
+        // resolve card used for payment (optional)
+        Card usedCard = null;
+        if (req.getCardId() != null && !req.getCardId().isBlank()) {
+            Card c = cardRepository.findById(req.getCardId())
+                    .orElseThrow(() -> new IllegalArgumentException("Tarjeta no encontrada: " + req.getCardId()));
+            if (!c.getUser().getRun().equals(user.getRun())) {
+                throw new IllegalArgumentException("La tarjeta no pertenece al usuario");
+            }
+            usedCard = c;
+            pedido.setCard(c);
+        }
+
+        if (consumeFreeCake && Boolean.TRUE.equals(user.getFreeCakeEligible()) && isBirthdayToday && !alreadyUsedToday) {
             for (PedidoItem pi : items) {
                 String name = pi.getProducto() == null ? "" : pi.getProducto().getNombreProducto();
                 if (name != null && name.toLowerCase().contains("torta") && pi.getCantidad() != null && pi.getCantidad() > 0 && !freeCakeApplied) {
@@ -111,27 +139,50 @@ public class PedidosService {
                     freeCakeAmount = freeCakeAmount.add(unitPrice);
                     // reduce line total by unitPrice
                     pi.setTotalPrice(pi.getTotalPrice().subtract(unitPrice));
-                    cakeSubtotal = cakeSubtotal.subtract(unitPrice);
+                    // removed unused cakeSubtotal adjustment
                     freeCakeApplied = true;
                     break;
                 }
             }
         }
 
-        // 2) apply discounts only to cakes, and only if frontend enabled the flag
+        // 2) apply discounts; current business rule: apply to ALL items (not only tortas)
         Integer ageDiscountInteger = user.getDiscountPercent();
         Integer lifetimeInteger = user.getLifetimeDiscountPercent();
         int ageDiscount = ageDiscountInteger == null ? 0 : ageDiscountInteger;
         int lifetime = lifetimeInteger == null ? 0 : lifetimeInteger;
-        int totalPercent = ageDiscount + lifetime; // cumulative as requested
 
         BigDecimal discountAmount = BigDecimal.ZERO;
         boolean applyDiscounts = Boolean.TRUE.equals(req.getApplyDiscounts());
-        if (applyDiscounts && totalPercent > 0 && cakeSubtotal.compareTo(BigDecimal.ZERO) > 0) {
-            discountAmount = cakeSubtotal.multiply(BigDecimal.valueOf(totalPercent)).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+        // base subtotal after any free cake adjustment: recompute from items
+        BigDecimal itemsSubtotalBeforeDiscounts = BigDecimal.ZERO;
+        for (PedidoItem pi : items) {
+            itemsSubtotalBeforeDiscounts = itemsSubtotalBeforeDiscounts.add(pi.getTotalPrice());
         }
 
-        BigDecimal total = cakeSubtotal.subtract(discountAmount).add(nonCakeSubtotal).setScale(2, RoundingMode.HALF_UP);
+        BigDecimal discountedItemsSubtotal = itemsSubtotalBeforeDiscounts;
+        if (applyDiscounts && discountedItemsSubtotal.compareTo(BigDecimal.ZERO) > 0) {
+            // aplica primero el mayor (lifetime), luego el menor (age)
+            if (lifetime > 0) {
+                BigDecimal lifetimeDiscount = discountedItemsSubtotal
+                        .multiply(BigDecimal.valueOf(lifetime))
+                        .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+                discountAmount = discountAmount.add(lifetimeDiscount);
+                discountedItemsSubtotal = discountedItemsSubtotal.subtract(lifetimeDiscount);
+            }
+            if (ageDiscount > 0) {
+                BigDecimal ageDiscountAmount = discountedItemsSubtotal
+                        .multiply(BigDecimal.valueOf(ageDiscount))
+                        .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+                discountAmount = discountAmount.add(ageDiscountAmount);
+                discountedItemsSubtotal = discountedItemsSubtotal.subtract(ageDiscountAmount);
+            }
+        }
+
+        // envío fijo 5000 (no afecta descuentos), se suma al final
+        BigDecimal shippingCost = BigDecimal.valueOf(5000);
+            BigDecimal itemsSubtotalAfterDiscounts = discountedItemsSubtotal.setScale(2, RoundingMode.HALF_UP);
+        BigDecimal total = itemsSubtotalAfterDiscounts.add(shippingCost).setScale(2, RoundingMode.HALF_UP);
 
         // persist snapshot fields
         pedido.setFreeCakeApplied(freeCakeApplied);
@@ -139,19 +190,52 @@ public class PedidosService {
         pedido.setDiscountAppliedPercent(ageDiscount > 0 ? ageDiscount : null);
         pedido.setLifetimeDiscountAppliedPercent(lifetime > 0 ? lifetime : null);
         pedido.setTotalAmount(total);
-        pedido.setSubtotalAmount(subtotal.setScale(2, RoundingMode.HALF_UP));
+        // Subtotal en DB: solo productos, después de aplicar torta gratis y descuentos, sin envío
+        pedido.setSubtotalAmount(itemsSubtotalAfterDiscounts);
         pedido.setDiscountAmount(discountAmount.setScale(2, RoundingMode.HALF_UP));
+        pedido.setShippingCost(shippingCost.setScale(2, RoundingMode.HALF_UP));
 
         // save pedido
         pedidoRepository.save(pedido);
 
+        // auto-register daily sales for each item
+        // We need to distribute the final subtotal (after all discounts) proportionally across items
+        // based on each item's contribution to the pre-discount subtotal
+        for (PedidoItem pi : items) {
+            if (pi.getProducto() != null && pi.getCantidad() != null && pi.getCantidad() > 0) {
+                BigDecimal itemTotalBeforeDiscounts = pi.getTotalPrice() == null ? BigDecimal.ZERO : pi.getTotalPrice();
+                
+                // Calculate what percentage this item represents of the total before discounts
+                BigDecimal itemProportion = BigDecimal.ZERO;
+                if (itemsSubtotalBeforeDiscounts.compareTo(BigDecimal.ZERO) > 0) {
+                    itemProportion = itemTotalBeforeDiscounts.divide(itemsSubtotalBeforeDiscounts, 6, RoundingMode.HALF_UP);
+                }
+                
+                // Apply that proportion to the final discounted subtotal
+                BigDecimal ingresosReales = itemsSubtotalAfterDiscounts.multiply(itemProportion).setScale(2, RoundingMode.HALF_UP);
+                
+                ventaDiariaService.registrarVenta(
+                    java.time.LocalDate.now(),
+                    pi.getProducto().getCodigoProducto(),
+                    pi.getCantidad(),
+                    ingresosReales
+                );
+            }
+        }
+
         OrderResponse resp = new OrderResponse();
         resp.setPedidoId(pedidoId);
-        resp.setSubtotal(subtotal.setScale(2, RoundingMode.HALF_UP));
+        // Subtotal en respuesta: solo productos después de beneficios, sin envío
+        resp.setSubtotal(itemsSubtotalAfterDiscounts);
+        resp.setShippingCost(shippingCost.setScale(2, RoundingMode.HALF_UP));
         resp.setFreeCakeAmount(freeCakeAmount.setScale(2, RoundingMode.HALF_UP));
         resp.setDiscountPercentApplied(ageDiscount > 0 ? ageDiscount : null);
         resp.setLifetimeDiscountPercentApplied(lifetime > 0 ? lifetime : null);
         resp.setDiscountAmount(discountAmount.setScale(2, RoundingMode.HALF_UP));
+        if (usedCard != null) {
+            resp.setCardId(usedCard.getId());
+            resp.setCardLastFour(extractLastFour(usedCard.getCardNumber()));
+        }
         resp.setTotal(total);
         resp.setItems(itemsEcho);
 
@@ -194,6 +278,7 @@ public class PedidosService {
         dto.setStatus(pedido.getStatus());
         dto.setCreatedAt(pedido.getCreatedAt());
         dto.setTotal(pedido.getTotalAmount());
+        dto.setShippingCost(pedido.getShippingCost());
         dto.setDeliveryAddress(pedido.getDeliveryAddress());
         dto.setFreeCakeApplied(pedido.getFreeCakeApplied());
         dto.setFreeCakeAmount(pedido.getFreeCakeAmount());
@@ -203,6 +288,10 @@ public class PedidosService {
         dto.setDiscountAmount(pedido.getDiscountAmount());
         dto.setTotalSinDescuento(pedido.getSubtotalAmount());
         dto.setTotalConDescuento(pedido.getTotalAmount());
+        if (pedido.getCard() != null) {
+            dto.setCardId(pedido.getCard().getId());
+            dto.setCardLastFour(extractLastFour(pedido.getCard().getCardNumber()));
+        }
         if (pedido.getUser() != null) {
             dto.setPurchaserRun(pedido.getUser().getRun());
             dto.setPurchaserNombre(pedido.getUser().getNombre());
@@ -223,5 +312,35 @@ public class PedidosService {
         }).toList();
         dto.setItems(items);
         return dto;
+    }
+
+    /**
+     * Parse birthday supporting common formats: ISO (YYYY-MM-DD) and dd/MM/yyyy.
+     */
+    private java.time.LocalDate parseBirthday(String raw) {
+        if (raw == null) return null;
+        String s = raw.trim();
+        // Try ISO first
+        try {
+            return java.time.LocalDate.parse(s);
+        } catch (Exception ignored) { }
+        // Try dd/MM/yyyy
+        try {
+            java.time.format.DateTimeFormatter fmt = java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy");
+            return java.time.LocalDate.parse(s, fmt);
+        } catch (Exception ignored) { }
+        // Try d/M/yyyy
+        try {
+            java.time.format.DateTimeFormatter fmt = java.time.format.DateTimeFormatter.ofPattern("d/M/yyyy");
+            return java.time.LocalDate.parse(s, fmt);
+        } catch (Exception ignored) { }
+        return null;
+    }
+
+    private String extractLastFour(String cardNumber) {
+        if (cardNumber == null) return null;
+        String numeric = cardNumber.replaceAll("[^0-9]", "");
+        if (numeric.length() <= 4) return numeric;
+        return numeric.substring(numeric.length() - 4);
     }
 }

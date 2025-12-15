@@ -85,6 +85,12 @@ public class CartService {
         cartRepository.save(cart);
     }
 
+    public void clearCart(String userRun) {
+        Cart cart = findOrCreateCart(userRun);
+        cart.getItems().clear();
+        cartRepository.save(cart);
+    }
+
     private Cart findOrCreateCart(String userRun) {
         ensureUserExists(userRun);
         Optional<Cart> optional = cartRepository.findByUserRun(userRun);

@@ -38,15 +38,66 @@ public class CardService {
     public CardDto addCard(String userRun, CardDto dto) {
         User user = userRepository.findById(userRun)
                 .orElseThrow(() -> new EntityNotFoundException("Usuario no encontrado: " + userRun));
+        
+        // If this card is marked as default, unset other defaults for this user
+        if (Boolean.TRUE.equals(dto.getIsDefault())) {
+            cardRepository.findByUserRun(userRun).forEach(c -> {
+                c.setIsDefault(false);
+                cardRepository.save(c);
+            });
+        }
+        
         Card card = new Card();
         card.setId(UUID.randomUUID().toString());
         card.setCardNumber(dto.getCardNumber());
         card.setMonth(dto.getMonth());
         card.setYear(dto.getYear());
         card.setCardholderName(dto.getCardholderName());
+        card.setIsDefault(dto.getIsDefault());
         card.setUser(user);
         Card saved = cardRepository.save(card);
         return toDto(saved);
+    }
+
+    @Transactional
+    public CardDto updateCard(String userRun, String cardId, CardDto dto) {
+        ensureUserExists(userRun);
+        Card card = cardRepository.findById(cardId)
+                .orElseThrow(() -> new IllegalArgumentException("Tarjeta no encontrada: " + cardId));
+        if (!card.getUser().getRun().equals(userRun)) {
+            throw new IllegalArgumentException("La tarjeta no pertenece al usuario");
+        }
+        
+        // If marking this card as default, unset other defaults for this user
+        if (Boolean.TRUE.equals(dto.getIsDefault())) {
+            cardRepository.findByUserRun(userRun).forEach(c -> {
+                if (!c.getId().equals(cardId)) {
+                    c.setIsDefault(false);
+                    cardRepository.save(c);
+                }
+            });
+        }
+        
+        // Update fields
+        if (dto.getCardNumber() != null) card.setCardNumber(dto.getCardNumber());
+        if (dto.getMonth() != null) card.setMonth(dto.getMonth());
+        if (dto.getYear() != null) card.setYear(dto.getYear());
+        if (dto.getCardholderName() != null) card.setCardholderName(dto.getCardholderName());
+        if (dto.getIsDefault() != null) card.setIsDefault(dto.getIsDefault());
+        
+        Card saved = cardRepository.save(card);
+        return toDto(saved);
+    }
+
+    @Transactional
+    public void deleteCard(String userRun, String cardId) {
+        ensureUserExists(userRun);
+        Card card = cardRepository.findById(cardId)
+                .orElseThrow(() -> new IllegalArgumentException("Tarjeta no encontrada: " + cardId));
+        if (!card.getUser().getRun().equals(userRun)) {
+            throw new IllegalArgumentException("La tarjeta no pertenece al usuario");
+        }
+        cardRepository.deleteById(cardId);
     }
 
     private void ensureUserExists(String run) {
@@ -63,6 +114,7 @@ public class CardService {
         dto.setYear(entity.getYear());
         dto.setCardholderName(entity.getCardholderName());
         dto.setLastFourDigits(extractLastFourDigits(entity.getCardNumber()));
+        dto.setIsDefault(entity.getIsDefault());
         return dto;
     }
 

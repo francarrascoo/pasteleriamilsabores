@@ -2,8 +2,10 @@ package com.service.pasteleriamilsabores.controller;
 
 import java.util.List;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -33,5 +35,15 @@ public class UserAddressController {
     public ResponseEntity<AddressDto> add(@PathVariable("run") String run, @RequestBody AddressDto dto) {
         AddressDto created = addressService.addAddress(run, dto);
         return ResponseEntity.status(201).body(created);
+    }
+
+    @DeleteMapping(path = "/{addressId}")
+    public ResponseEntity<Void> deleteAddress(@PathVariable("run") String run, @PathVariable("addressId") String addressId) {
+        try {
+            addressService.deleteAddress(run, addressId);
+            return ResponseEntity.noContent().build();
+        } catch (IllegalArgumentException ex) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+        }
     }
 }

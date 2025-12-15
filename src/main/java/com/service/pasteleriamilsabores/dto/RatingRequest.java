@@ -1,5 +1,6 @@
 package com.service.pasteleriamilsabores.dto;
 
+
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -7,7 +8,7 @@ import lombok.NoArgsConstructor;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class OrderItemRequest {
-    private String productoCodigo;
-    private Integer cantidad;
+public class RatingRequest {
+    private Integer stars;
+    private String comment;
 }

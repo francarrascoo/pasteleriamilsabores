@@ -50,4 +50,10 @@ public class CartController {
         cartService.removeItem(run, itemId);
         return ResponseEntity.ok(Map.of("status", "deleted"));
     }
+
+    @DeleteMapping("/items")
+    public ResponseEntity<Map<String, String>> clearCart(@PathVariable("run") String run) {
+        cartService.clearCart(run);
+        return ResponseEntity.ok(Map.of("status", "cart cleared"));
+    }
 }

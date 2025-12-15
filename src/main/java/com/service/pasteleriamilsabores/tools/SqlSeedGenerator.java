@@ -6,13 +6,19 @@ import java.io.InputStream;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.Period;
+import java.time.ZoneId;
+import java.time.format.DateTimeParseException;
+import java.util.HashMap;
+import java.util.Map;
+
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import java.time.LocalDate;
-import java.time.format.DateTimeParseException;
-import java.time.Period;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 
 /**
  * NOTE: This generator uses Spring Security's BCryptPasswordEncoder which
@@ -24,6 +30,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 public class SqlSeedGenerator {
     private static final ObjectMapper M = new ObjectMapper();
     private static final BCryptPasswordEncoder BCRYPT = new BCryptPasswordEncoder();
+    private static final Map<String, String> EMAIL_TO_RUN = new HashMap<>();
 
     public static void main(String[] args) throws Exception {
         File out = new File("target/seed.sql");
@@ -38,6 +45,7 @@ public class SqlSeedGenerator {
             writeRegiones(w);
             writeCategoriasAndProductos(w);
             writeUsersAndAddresses(w);
+            writeRatings(w);
 
             w.flush();
         }
@@ -138,6 +146,9 @@ public class SqlSeedGenerator {
             String nombre = esc(n.path("nombre").asText(""));
             String apellidos = esc(n.path("apellidos").asText(""));
             String correo = esc(n.path("correo").asText(""));
+            if (!correo.isEmpty()) {
+                EMAIL_TO_RUN.put(correo, run);
+            }
             String telefonoRaw = n.has("telefono") && !n.path("telefono").isNull() ? n.path("telefono").asText(null) : null;
             String telefonoSql = (telefonoRaw == null || telefonoRaw.isEmpty()) ? "NULL" : "'" + esc(telefonoRaw) + "'";
             String fechaNacimiento = esc(n.path("fechaNacimiento").asText(""));
@@ -181,7 +192,7 @@ public class SqlSeedGenerator {
                     // ignore
                 }
             }
-            if (freeCakeVal == null && correo != null && correo.toLowerCase().contains("duoc.cl")) {
+            if (freeCakeVal == null && correo.toLowerCase().contains("duoc.cl")) {
                 freeCakeVal = Boolean.TRUE;
             }
             if (lifetimeVal == null && registrationCode != null && "FELICES50".equalsIgnoreCase(registrationCode.trim())) {
@@ -196,9 +207,10 @@ public class SqlSeedGenerator {
                 String freeCakeSql = freeCakeVal == null ? "NULL" : (freeCakeVal ? "1" : "0");
                 String regCodeSql = registrationCode == null ? "NULL" : "'" + esc(registrationCode) + "'";
                 String regDateSql = (registrationDate == null || registrationDate.isEmpty()) ? "NULL" : "'" + esc(registrationDate) + "'";
+                String activoSql = "1"; // default activo = true
 
-                w.write(String.format("INSERT INTO usuarios (run,nombre,apellidos,correo,telefono,fecha_nacimiento,tipo_usuario,password,porcentaje_descuento,porcentaje_descuento_permanente,torta_gratis_elegible,codigo_registro,fecha_registro) VALUES ('%s','%s','%s','%s',%s,'%s','%s','%s',%s,%s,%s,%s,%s);\n",
-                    run,nombre,apellidos,correo,telefonoSql,fechaNacimiento,tipoUsuario, esc(hashedPassword),discountSql,lifetimeSql,freeCakeSql,regCodeSql,regDateSql));
+                w.write(String.format("INSERT INTO usuarios (run,nombre,apellidos,correo,telefono,fecha_nacimiento,tipo_usuario,password,porcentaje_descuento,porcentaje_descuento_permanente,torta_gratis_elegible,codigo_registro,fecha_registro,activo) VALUES ('%s','%s','%s','%s',%s,'%s','%s','%s',%s,%s,%s,%s,%s,%s);\n",
+                    run,nombre,apellidos,correo,telefonoSql,fechaNacimiento,tipoUsuario, esc(hashedPassword),discountSql,lifetimeSql,freeCakeSql,regCodeSql,regDateSql,activoSql));
 
             JsonNode addresses = n.path("addresses");
             if (addresses.isArray()) {
@@ -225,6 +237,48 @@ public class SqlSeedGenerator {
             }
         }
         w.write("\n");
+    }
+
+    private static void writeRatings(Writer w) throws Exception {
+        InputStream is = Thread.currentThread().getContextClassLoader().getResourceAsStream("com/service/data/products/productos.json");
+        if (is == null) return;
+        JsonNode root = M.readTree(is);
+        JsonNode categorias = root.path("categorias");
+        if (!categorias.isArray()) return;
+        for (JsonNode catNode : categorias) {
+            JsonNode productos = catNode.path("productos");
+            if (!productos.isArray()) continue;
+            for (JsonNode pnode : productos) {
+                String codigo = esc(pnode.path("codigo_producto").asText(""));
+                JsonNode ratings = pnode.path("ratings");
+                if (ratings == null || !ratings.isArray()) continue;
+                for (JsonNode r : ratings) {
+                    String email = esc(r.path("userEmail").asText(""));
+                    String run = EMAIL_TO_RUN.get(email);
+                    if (run == null || run.isEmpty()) continue; // skip if user not in seed
+                    int stars = r.path("stars").asInt(0);
+                    String comment = esc(r.path("comment").asText(""));
+                    String dateRaw = r.path("date").asText("");
+                    LocalDateTime ts = parseDateTime(dateRaw);
+                    String tsSql = ts == null ? "CURRENT_TIMESTAMP" : "'" + ts.toString() + "'";
+                    w.write(String.format("INSERT INTO ratings (user_run,producto_codigo,stars,comment,created_at,updated_at) VALUES ('%s','%s',%d,'%s',%s,%s);\n",
+                            run, codigo, stars, comment, tsSql, tsSql));
+                }
+            }
+        }
+        w.write("\n");
+    }
+
+    private static LocalDateTime parseDateTime(String raw) {
+        if (raw == null || raw.isBlank()) return null;
+        try {
+            return LocalDateTime.parse(raw.replace("Z", ""));
+        } catch (Exception ex) {
+            try {
+                return LocalDateTime.ofInstant(Instant.parse(raw), ZoneId.systemDefault());
+            } catch (Exception ignored) { }
+            return null;
+        }
     }
 
     private static String esc(String s) {

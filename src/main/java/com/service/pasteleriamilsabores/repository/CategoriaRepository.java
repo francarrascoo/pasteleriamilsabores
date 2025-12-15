@@ -8,4 +8,6 @@ import com.service.pasteleriamilsabores.models.Categoria;
 @Repository
 public interface CategoriaRepository extends JpaRepository<Categoria, Integer> {
 
+	java.util.Optional<Categoria> findByNombreCategoriaIgnoreCase(String nombreCategoria);
+
 }

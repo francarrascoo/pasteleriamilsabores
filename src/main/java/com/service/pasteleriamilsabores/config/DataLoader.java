@@ -16,20 +16,22 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.service.pasteleriamilsabores.models.Address;
 import com.service.pasteleriamilsabores.models.Blog;
+import com.service.pasteleriamilsabores.models.Card;
 import com.service.pasteleriamilsabores.models.Categoria;
 import com.service.pasteleriamilsabores.models.Producto;
+import com.service.pasteleriamilsabores.models.Rating;
 import com.service.pasteleriamilsabores.models.Receta;
 import com.service.pasteleriamilsabores.models.RegionComuna;
 import com.service.pasteleriamilsabores.models.User;
-import com.service.pasteleriamilsabores.models.Card;
 import com.service.pasteleriamilsabores.models.UserType;
 import com.service.pasteleriamilsabores.repository.BlogRepository;
+import com.service.pasteleriamilsabores.repository.CardRepository;
 import com.service.pasteleriamilsabores.repository.CategoriaRepository;
 import com.service.pasteleriamilsabores.repository.ProductoRepository;
+import com.service.pasteleriamilsabores.repository.RatingRepository;
 import com.service.pasteleriamilsabores.repository.RecetaRepository;
 import com.service.pasteleriamilsabores.repository.RegionComunaRepository;
 import com.service.pasteleriamilsabores.repository.UserRepository;
-import com.service.pasteleriamilsabores.repository.CardRepository;
 
 @Component
 @ConditionalOnProperty(name = "app.seed.enabled", havingValue = "true", matchIfMissing = true)
@@ -59,6 +61,9 @@ public class DataLoader implements CommandLineRunner {
     @Autowired
     private CardRepository cardRepository;
 
+    @Autowired
+    private RatingRepository ratingRepository;
+
     private final ObjectMapper mapper = new ObjectMapper();
     private static final Logger log = LoggerFactory.getLogger(DataLoader.class);
 
@@ -70,8 +75,9 @@ public class DataLoader implements CommandLineRunner {
             loadBlogs();
             loadRecetas();
             loadRegiones();
-            loadProductsAndCategorias();
             loadUsers();
+            loadProductsAndCategorias();
+            loadRatings();
             log.info("DataLoader finished successfully");
         } catch (Exception e) {
             log.error("DataLoader failed: {}", e.getMessage(), e);
@@ -243,6 +249,11 @@ public class DataLoader implements CommandLineRunner {
 
             // Auto-fill computed fields when missing
             try {
+                // Set activo to true by default
+                if (u.getActivo() == null) {
+                    u.setActivo(true);
+                }
+
                 // compute age-based discount if not present
                 if (u.getDiscountPercent() == null && u.getFechaNacimiento() != null) {
                     try {
@@ -338,6 +349,58 @@ public class DataLoader implements CommandLineRunner {
         if (!toSave.isEmpty()) {
             cardRepository.saveAll(toSave);
             log.info("Added {} new tarjetas for existing user {}", toSave.size(), existing.getRun());
+        }
+    }
+
+    private void loadRatings() throws Exception {
+        InputStream is = resource("com/service/data/products/productos.json");
+        if (is == null) return;
+        JsonNode root = mapper.readTree(is);
+        JsonNode categorias = root.path("categorias");
+        if (!categorias.isArray()) return;
+
+        // map email -> user run from DB
+        java.util.Map<String, String> emailToRun = new java.util.HashMap<>();
+        userRepository.findAll().forEach(u -> {
+            if (u.getCorreo() != null) {
+                emailToRun.put(u.getCorreo(), u.getRun());
+            }
+        });
+
+        for (JsonNode catNode : categorias) {
+            JsonNode productos = catNode.path("productos");
+            if (!productos.isArray()) continue;
+            for (JsonNode pnode : productos) {
+                String codigo = pnode.path("codigo_producto").asText(null);
+                if (codigo == null || !productoRepository.existsById(codigo)) continue;
+                JsonNode ratings = pnode.path("ratings");
+                if (ratings == null || !ratings.isArray()) continue;
+                for (JsonNode r : ratings) {
+                    String email = r.path("userEmail").asText(null);
+                    String run = email == null ? null : emailToRun.get(email);
+                    if (run == null) continue; // skip ratings whose user is not seeded
+                    int stars = r.path("stars").asInt(0);
+                    String comment = r.path("comment").asText(null);
+                    String dateRaw = r.path("date").asText(null);
+
+                    // avoid duplicate rating per user+product
+                    boolean exists = ratingRepository.findByUserRunAndProductoCodigoProducto(run, codigo).isPresent();
+                    if (exists) continue;
+
+                    Rating rating = new Rating();
+                    rating.setUser(userRepository.getReferenceById(run));
+                    rating.setProducto(productoRepository.getReferenceById(codigo));
+                    rating.setStars(stars);
+                    rating.setComment(comment);
+                    try {
+                        if (dateRaw != null && !dateRaw.isEmpty()) {
+                            rating.setCreatedAt(java.time.LocalDateTime.parse(dateRaw.replace("Z", "")));
+                            rating.setUpdatedAt(rating.getCreatedAt());
+                        }
+                    } catch (Exception ignored) { }
+                    ratingRepository.save(rating);
+                }
+            }
         }
     }
 }

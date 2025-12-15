@@ -1,5 +1,7 @@
 package com.service.pasteleriamilsabores.models;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
@@ -28,5 +30,6 @@ public class Address {
 
     @ManyToOne
     @JoinColumn(name = "usuario_run")
+    @JsonIgnore
     private User user;
 }

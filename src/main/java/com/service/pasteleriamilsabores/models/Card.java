@@ -1,5 +1,7 @@
 package com.service.pasteleriamilsabores.models;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
@@ -33,7 +35,11 @@ public class Card {
     @Column(name = "nombre")
     private String cardholderName;
 
+    @Column(name = "es_predeterminada")
+    private Boolean isDefault;
+
     @ManyToOne
     @JoinColumn(name = "usuario_run")
+    @JsonIgnore
     private User user;
 }

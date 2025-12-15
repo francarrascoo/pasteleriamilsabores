@@ -48,6 +48,17 @@ public class AddressService {
         return toDto(saved);
     }
 
+    @Transactional
+    public void deleteAddress(String userRun, String addressId) {
+        ensureUserExists(userRun);
+        Address address = addressRepository.findById(addressId)
+                .orElseThrow(() -> new IllegalArgumentException("Dirección no encontrada: " + addressId));
+        if (!address.getUser().getRun().equals(userRun)) {
+            throw new IllegalArgumentException("La dirección no pertenece al usuario");
+        }
+        addressRepository.deleteById(addressId);
+    }
+
     private void ensureUserExists(String run) {
         if (!userRepository.existsById(run)) {
             throw new EntityNotFoundException("Usuario no encontrado: " + run);

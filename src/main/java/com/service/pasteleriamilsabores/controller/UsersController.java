@@ -67,4 +67,28 @@ public class UsersController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error al actualizar usuario");
         }
     }
+
+    @PutMapping(path = "/{run}/toggle-active", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<Object> toggleUserActive(@PathVariable("run") String run, @RequestBody ToggleActiveRequest request) {
+        try {
+            User updated = usersService.toggleUserActive(run, request.getActivo());
+            return ResponseEntity.ok(updated);
+        } catch (EntityNotFoundException ex) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ex.getMessage());
+        } catch (Exception ex) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error al cambiar estado del usuario");
+        }
+    }
+
+    public static class ToggleActiveRequest {
+        private Boolean activo;
+
+        public Boolean getActivo() {
+            return activo;
+        }
+
+        public void setActivo(Boolean activo) {
+            this.activo = activo;
+        }
+    }
 }

@@ -2,11 +2,14 @@ package com.service.pasteleriamilsabores.controller;
 
 import java.util.List;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -33,5 +36,21 @@ public class UserCardController {
     public ResponseEntity<CardDto> add(@PathVariable("run") String run, @RequestBody CardDto dto) {
         CardDto created = cardService.addCard(run, dto);
         return ResponseEntity.status(201).body(created);
+    }
+
+    @PutMapping(path = "/{cardId}", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<CardDto> update(@PathVariable("run") String run, @PathVariable("cardId") String cardId, @RequestBody CardDto dto) {
+        CardDto updated = cardService.updateCard(run, cardId, dto);
+        return ResponseEntity.ok(updated);
+    }
+
+    @DeleteMapping(path = "/{cardId}")
+    public ResponseEntity<Void> deleteCard(@PathVariable("run") String run, @PathVariable("cardId") String cardId) {
+        try {
+            cardService.deleteCard(run, cardId);
+            return ResponseEntity.noContent().build();
+        } catch (IllegalArgumentException ex) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+        }
     }
 }
